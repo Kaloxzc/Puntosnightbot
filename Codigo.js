@@ -1,8 +1,10 @@
-function doGet(e) {
+function doGet(e) 
+//Verificar usuario
+{
   if (!e.parameter.user) {
     return ContentService.createTextOutput("Error: falta el nombre de usuario.");
   }
-
+//Variables
   const action = e.parameter.action;
   const user = e.parameter.user.toLowerCase();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja 1");
@@ -14,12 +16,14 @@ function doGet(e) {
     sheet.appendRow([user, 0]);
     userRow = data.length;
   }
+  //Variable para detectar coño o pene
   let userPoints = parseInt(sheet.getRange(userRow + 1, 2).getValue());
   const tipoPuntos = userPoints >= 0 ? "penes" : "coños";
+  //Comando !penes
   if (action === "points") { 
     return ContentService.createTextOutput(`${user} tiene ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos}.`); 
   }
-
+//Comando !dar
  if (action === "dar") {
     if (isNaN(amount) || amount <= 0){
       return ContentService.createTextOutput(`Error: debes dar una cantidad valida de penes.`);
@@ -57,14 +61,17 @@ function doGet(e) {
 
     return ContentService.createTextOutput(`${user} le dio ${amount} penes a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
   }
+  //Comando !gamba
   if (action === "gamba"){  
   let apuesta = e.parameter.bet?.toLowerCase() === "all" ? Math.abs(userPoints) : parseInt(e.parameter.bet);
+  if (userPoints == 0){
+    return ContentService.createTextOutput(`No tienes penes para apostar. Tus penes actuales son ${userPoints}`);
+  }
   if (isNaN(apuesta) || apuesta <= 0) {
     return ContentService.createTextOutput(`Error: debes apostar una cantidad válida de penes.`);
   }
-
   if (userPoints < apuesta) {
-    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale. Tus ${tipoPuntos} actuales son ${userPoints >= 0 ?userPoints : -userPoints} X3`);
+    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Tus ${tipoPuntos} actuales son ${userPoints >= 0 ?userPoints : -userPoints} X3`);
   }
 
   // 50% de ganar o perder
@@ -80,6 +87,7 @@ function doGet(e) {
       return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y perdió! sadkitty Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3`);
   }
 }
+//Comando !ranking
 if (action === "ranking") {
   // Obtenemos los datos de todos
   const usersData = data.map(r => ({
@@ -98,6 +106,7 @@ if (action === "ranking") {
 
   return ContentService.createTextOutput(`Top 5 global: ${rankingText}`);
 }
+//Comando !jugar
  const ganancias = [30, 20, 5];
  const perdidas = [-20, -10, -5];
  const opciones = ganancias.concat(perdidas);
@@ -109,7 +118,7 @@ if (action === "ranking") {
 
  const resultado = cambio > 0
     ? `¡${user} ganó ${cambio} penes BoyKisserSwoon !Ahora tienes ${Math.abs(userPoints)} ${tipoPuntosFinal}.`
-    : `¡${user} perdió ${Math.abs(cambio)} penes BoykisserSad! Ahora tienes ${Math.abs(userPoints)} ${tipoPuntosFinal}.`;
+    : `¡${user} perdió ${Math.abs(cambio)} penes BoykisserSad ! Ahora tienes ${Math.abs(userPoints)} ${tipoPuntosFinal}.`;
 
   return ContentService.createTextOutput(resultado);
 
