@@ -7,7 +7,7 @@ function doGet(e)
 //Variables
   const action = e.parameter.action;
   const user = e.parameter.user.toLowerCase();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja 1");
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Puntos");
   const data = sheet.getDataRange().getValues();
   const giveTo = e.parameter.giveTo?.toLowerCase();
   const amount = parseInt(e.parameter.amount);
