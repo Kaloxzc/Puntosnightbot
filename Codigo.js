@@ -58,7 +58,7 @@ function doGet(e) {
     return ContentService.createTextOutput(`${user} le dio ${amount} penes a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
   }
   if (action === "gamba"){  
-  const apuesta = parseInt(e.parameter.bet);
+  let apuesta = e.parameter.bet?.toLowerCase() === "all" ? Math.abs(userPoints) : parseInt(e.parameter.bet);
   if (isNaN(apuesta) || apuesta <= 0) {
     return ContentService.createTextOutput(`Error: debes apostar una cantidad válida de penes.`);
   }
