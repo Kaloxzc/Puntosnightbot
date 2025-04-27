@@ -28,7 +28,7 @@ function doGet(e)
   //Función que busca el usuario, obtiene sus puntos, y de acuerdo al callback (una función de transformación) llamado "modifier", transforma los puntos del usuario
   function modifyPoints(user,modifier){
     let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user);
-    if (row === -1) return null;
+    if (row === -1) return undefined;
     let points=parseInt(sheet.getRange(row + 1, 2).getValue());
     points=modifier(points);
     sheet.getRange(row + 1, 2).setValue(points);
