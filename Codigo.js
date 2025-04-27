@@ -28,10 +28,11 @@ function doGet(e)
   //Función que busca el usuario, obtiene sus puntos, y de acuerdo al callback (una función de transformación) llamado "modifier", transforma los puntos del usuario
   function modifyPoints(user,modifier){
     let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user);
-    if (row === -1) return 0;
+    if (row === -1) return null;
     let points=parseInt(sheet.getRange(row + 1, 2).getValue());
-    sheet.getRange(row + 1, 2).setValue(modifier(points));
-    return 1;
+    points=modifier(points);
+    sheet.getRange(row + 1, 2).setValue(points);
+    return points;
   }
   //Comando !penes
   if (action === "points") { 
@@ -54,32 +55,29 @@ function doGet(e)
     }
 
     let success=modifyPoints(giveTo,giveToPoints=>giveToPoints + amount);
-    if (success==0)return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
-    modifyPoints(user,userPoints=>userPoints - amount);
+    if (success==null)return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
+    userPoints=modifyPoints(user,userPoints=>userPoints - amount);
 
     return ContentService.createTextOutput(`${user} le dio ${points(amount)} a ${giveTo} FemboyHop ! Jigglin Ahora tienes ${points(userPoints)} X3`)
   }
   //Comando !gamba
   if (action === "gamba"){  
   let apuesta = e.parameter.bet?.toLowerCase() === "all" ? Math.abs(userPoints) : parseInt(e.parameter.bet);
-  if (userPoints == 0){
-    return ContentService.createTextOutput(`No tienes penes para apostar. Tus penes actuales son ${userPoints}`);
-  }
   if (isNaN(apuesta) || apuesta <= 0) {
     return ContentService.createTextOutput(`Error: debes apostar una cantidad válida de penes.`);
   }
   if (userPoints < apuesta) {
-    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Tus ${tipoPuntos} actuales son ${userPoints >= 0 ?userPoints : -userPoints} X3 `);
+    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Actualmente tienes ${points(userPoints)} X3 `);
   }
 
   // 50% de ganar o perder
   const exito = Math.random() < 0.5; // true = gana, false = pierde
 
   if (exito) {
-    modifyPoints(user,x=>x + apuesta);
+    userPoints=modifyPoints(user,x=>x + apuesta);
     return ContentService.createTextOutput(`${user} apostó ${points(apuesta)} y ganó! BoykisserDance Ahora tienes ${points(userPoints)} X3`)
   } else {
-    modifyPoints(user,x=>x-apuesta);
+    userPoints=modifyPoints(user,x=>x-apuesta);
     return ContentService.createTextOutput(`${user} apostó ${points(apuesta)} y perdió! sadkitty Ahora tienes ${points(userPoints)} X3`)
   }
 }
@@ -108,13 +106,11 @@ if (action === "ranking") {
  const opciones = ganancias.concat(perdidas);
  const cambio = opciones[Math.floor(Math.random() * opciones.length)];
 
- userPoints += cambio;
- sheet.getRange(userRow + 1, 2).setValue(userPoints);
- const tipoPuntosFinal = userPoints >= 0 ? "penes" : "coños";
+ userPoints=modifyPoints(user,a=>a+cambio);
 
  const resultado = cambio > 0
     ? `¡${user} ganó ${points(cambio)} BoyKisserSwoon !Ahora tienes ${points(userPoints)}.`
-    : `¡${user} perdió ${points(Math.abs(cambio))} BoykisserSad ! Ahora tienes ${points(userPoints)}.`;
+    : `¡${user} perdió ${points(-cambio)} BoykisserSad ! Ahora tienes ${points(userPoints)}.`;
 
   return ContentService.createTextOutput(resultado);
 
