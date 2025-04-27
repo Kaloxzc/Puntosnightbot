@@ -38,6 +38,41 @@ function doGet(e)
   if (action === "points") { 
     return ContentService.createTextOutput(`${user} tiene ${points(userPoints)}.`); 
   }
+  //Comando !comprar
+  if (action === "comprar") {
+  const itemComprar = e.parameter.item?.toLowerCase(); // el ítem que pidió
+  const tienda = {
+    "proteccion": { nombre: "Protección", precio: 150 },
+  };
+  if (!itemComprar || !tienda[itemComprar]) {
+    return ContentService.createTextOutput(`Error: El objeto "${itemComprar}" no existe en la tienda.`);
+  }
+  const itemInfo = tienda[itemComprar];
+
+  if (userPoints < itemInfo.precio) {
+    return ContentService.createTextOutput(`No tienes suficientes ${tipoPuntos} para comprar ${itemInfo.nombre}. Necesitas ${itemInfo.precio}.`);
+  }
+  //La resta del comprar
+
+  userPoints -= itemInfo.precio;
+  sheet.getRange(userRow + 1, 2).setValue(userPoints);
+
+  //Agregar a inventario
+  const inventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inventario");
+  const dataInventario = inventario.getDataRange().getValues();
+  let inventarioRow = dataInventario.findIndex(r => r[0] && r[0].toLowerCase() === user && r[1] === itemInfo.nombre);
+
+  if (inventarioRow === -1) {
+    // No tenía el ítem aún, agregar nuevo
+    inventario.appendRow([user, itemInfo.nombre, 1]);
+  } else {
+    // Ya tenía, aumentar cantidad
+    let cantidadActual = parseInt(inventario.getRange(inventarioRow + 1, 3).getValue());
+    inventario.getRange(inventarioRow + 1, 3).setValue(cantidadActual + 1);
+  }
+
+  return ContentService.createTextOutput(`¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}! Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos}.`);
+}
 //Comando !dar
  if (action === "dar") {
     if (isNaN(amount) || amount <= 0){
@@ -76,11 +111,26 @@ function doGet(e)
   if (exito) {
     userPoints=modifyPoints(user,x=>x + apuesta);
     return ContentService.createTextOutput(`${user} apostó ${points(apuesta)} y ganó! BoykisserDance Ahora tienes ${points(userPoints)} X3`)
+  } 
+  if (!exito) { // perdió
+  let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue());
+  if (protecciones > 0) {
+    protecciones -= 1;
+    sheet.getRange(userRow + 1, 3).setValue(protecciones);
+    
+    if (protecciones > 0) {
+      return ContentService.createTextOutput(`¡${user} perdió la apuesta, pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
+    } else {
+      return ContentService.createTextOutput(`¡${user} perdió la apuesta, pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
+    }
   } else {
-    userPoints=modifyPoints(user,x=>x-apuesta);
-    return ContentService.createTextOutput(`${user} apostó ${points(apuesta)} y perdió! sadkitty Ahora tienes ${points(userPoints)} X3`)
+    // Sin protecciones, pierde normalmente
+    userPoints -= apuesta;
+    sheet.getRange(userRow + 1, 2).setValue(userPoints);
+    return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y perdió! sadkitty Ahora tienes ${Math.abs(userPoints)} ${tipoPuntos}.`);
   }
-}
+ }
+ }
 //Comando !ranking
 if (action === "ranking") {
   // Obtenemos los datos de todos
@@ -99,20 +149,39 @@ if (action === "ranking") {
   let rankingText = top5.map((u, i) => `${i + 1}. ${u.name} (${points(u.points)})`).join(' --- ');
 
   return ContentService.createTextOutput(`Top 5 global: ${rankingText}`);
-}
-//Comando !jugar
+ }
+ // Comando !jugar
  const ganancias = [30, 20, 5];
  const perdidas = [-20, -10, -5];
  const opciones = ganancias.concat(perdidas);
  const cambio = opciones[Math.floor(Math.random() * opciones.length)];
+ const tipoPuntosFinal = userPoints >= 0 ? "penes" : "coños";
+ userPoints = modifyPoints(user, a => a + cambio);
 
- userPoints=modifyPoints(user,a=>a+cambio);
-
- const resultado = cambio > 0
-    ? `¡${user} ganó ${points(cambio)} BoyKisserSwoon !Ahora tienes ${points(userPoints)}.`
-    : `¡${user} perdió ${points(-cambio)} BoykisserSad ! Ahora tienes ${points(userPoints)}.`;
-
+ // Si GANÓ (cambio positivo)
+ if (cambio > 0) {
+  const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon! Ahora tienes ${points(userPoints)}.`;
   return ContentService.createTextOutput(resultado);
+ }
 
+ // Si PERDIÓ (cambio negativo)
+ if (cambio < 0) {
+  let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue()); // Columna 3 = Protección
+
+  if (protecciones > 0) {
+    // Tiene protección
+    protecciones -= 1;
+    sheet.getRange(userRow + 1, 3).setValue(protecciones);
+    
+    if (protecciones > 0) {
+      return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
+    } else {
+      return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
+    }
+  } else {
+    // No tiene protección
+    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! Ahora tienes ${points(userPoints)} ${tipoPuntosFinal}.`;
+    return ContentService.createTextOutput(resultado);
+  }
+ }
 }
-
