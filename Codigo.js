@@ -35,10 +35,6 @@ function doGet(e)
     if (amount <= 0) {
       return ContentService.createTextOutput("Error: la cantidad debe ser mayor que 0 xd ");
     }
-    if (amount == 1) {
-      return ContentService.createTextOutput(`${user} le dio ${amount} pene/coño a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
-    }
-
     if (userPoints < amount) {
       return ContentService.createTextOutput(`Error: no tienes suficientes penes WAJAJA . Tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
     }
@@ -46,9 +42,8 @@ function doGet(e)
     // Buscar fila del receptor
     let giveToRow = data.findIndex(r => r[0] && r[0].toLowerCase() === giveTo);
     if (giveToRow === -1) {
-      sheet.appendRow([giveTo, 0]);
-      giveToRow = data.length;
-    }
+    return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
+  }
 
     let giveToPoints = parseInt(sheet.getRange(giveToRow + 1, 2).getValue());
 
@@ -57,9 +52,14 @@ function doGet(e)
     giveToPoints += amount;
 
     sheet.getRange(userRow + 1, 2).setValue(userPoints);
-    sheet.getRange(giveToRow + 1, 2).setValue(giveToPoints);
+    sheet.getRange(giveToRow + 1, 2).setValue(giveToPoints); 
 
-    return ContentService.createTextOutput(`${user} le dio ${amount} penes a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
+    if (amount == 1) {
+      return ContentService.createTextOutput(`${user} le dio ${amount} pene a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
+    } 
+   else{
+     return ContentService.createTextOutput(`${user} le dio ${amount} penes a ${giveTo} FemboyHop ! Jigglin  Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
+    }
   }
   //Comando !gamba
   if (action === "gamba"){  
@@ -71,7 +71,7 @@ function doGet(e)
     return ContentService.createTextOutput(`Error: debes apostar una cantidad válida de penes.`);
   }
   if (userPoints < apuesta) {
-    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Tus ${tipoPuntos} actuales son ${userPoints >= 0 ?userPoints : -userPoints} X3`);
+    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Tus ${tipoPuntos} actuales son ${userPoints >= 0 ?userPoints : -userPoints} X3 `);
   }
 
   // 50% de ganar o perder
@@ -80,11 +80,11 @@ function doGet(e)
   if (exito) {
       userPoints += apuesta;
       sheet.getRange(userRow + 1, 2).setValue(userPoints);
-      return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y ganó! BoykisserDance Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3`);
+      return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y ganó! BoykisserDance Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
   } else {
       userPoints -= apuesta;
       sheet.getRange(userRow + 1, 2).setValue(userPoints);
-      return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y perdió! sadkitty Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3`);
+      return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y perdió! sadkitty Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos} X3 `);
   }
 }
 //Comando !ranking
