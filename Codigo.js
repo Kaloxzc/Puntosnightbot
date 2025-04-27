@@ -160,7 +160,7 @@ if (action === "ranking") {
 
  // Si GANÓ (cambio positivo)
  if (cambio > 0) {
-  const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon! Ahora tienes ${points(userPoints)}.`;
+  const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
   return ContentService.createTextOutput(resultado);
  }
 
@@ -180,7 +180,7 @@ if (action === "ranking") {
     }
   } else {
     // No tiene protección
-    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! Ahora tienes ${points(userPoints)} ${tipoPuntosFinal}.`;
+    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! Ahora tienes ${points(userPoints)} `;
     return ContentService.createTextOutput(resultado);
   }
  }
