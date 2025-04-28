@@ -34,22 +34,17 @@ function doGet(e)
   
    // Si PERDIÓ (cambio negativo)
    if (cambio < 0) {
+    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
+      return ContentService.createTextOutput(resultado);
     let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue()); // Columna 3 = Protección
-  
+   if(userRow == -1){
+    protecciones = 0
+   }
     if (protecciones > 0) {
       // Tiene protección
       protecciones -= 1;
       sheet.getRange(userRow + 1, 3).setValue(protecciones);
-      
-      if (protecciones > 0) {
-        return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
-      } else {
-        return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
-      }
-    } else {
-      // No tiene protección
-      const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
-      return ContentService.createTextOutput(resultado);
+
     }
    }
    }
@@ -89,25 +84,54 @@ function doGet(e)
 if (action === "comprar") {
   const itemComprar = e.parameter.item?.toLowerCase(); // el ítem que pidió
   const tienda = {
-    "proteccion": { nombre: "Protección", precio: 150 },
+    "condon": { nombre: "Condon", precio: 2000 },
   };
   
   if (!itemComprar || !tienda[itemComprar]) {
     return ContentService.createTextOutput(`Error: El objeto "${itemComprar}" no existe en la tienda.`);
   }
-  
+  let cantidadDisponible = null;  
   const itemInfo = tienda[itemComprar];
 
   if (userPoints < itemInfo.precio) {
     return ContentService.createTextOutput(`No tienes suficientes ${tipoPuntos} para comprar ${itemInfo.nombre}. Necesitas ${itemInfo.precio}.`);
   }
+if (itemInfo.nombre === "Condon") {
+  const stockSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Stock");
+  const stockData = stockSheet.getDataRange().getValues();
+  const stockRow = stockData.findIndex(r => r[0]?.toLowerCase() === "proteccion");
 
+  if (stockRow !== -1) {
+    cantidadDisponible = parseInt(stockData[stockRow][1]);
+    let ultimaRecarga = new Date(stockData[stockRow][2]);
+    const ahora = new Date();
+
+    // Verificar si ya pasó 1 día
+    if ((ahora - ultimaRecarga) >= (24 * 60 * 60 * 1000)) {
+      cantidadDisponible = 5; // Stock nuevo
+      stockSheet.getRange(stockRow + 1, 2).setValue(cantidadDisponible);
+      stockSheet.getRange(stockRow + 1, 3).setValue(ahora);
+    }
+
+    if (cantidadDisponible <= 0) {
+  // Evitar que compre si ya no hay stock
+  return ContentService.createTextOutput(`¡No quedan protecciones hoy! Intenta mañana OwO`);
+  }
+
+// SOLO SI HAY STOCK
+   cantidadDisponible--; // Descuenta 1
+   stockSheet.getRange(stockRow + 1, 2).setValue(cantidadDisponible);
+
+// Actualizar protecciones del usuario
+
+  }
+}
   // La resta del comprar
   userPoints -= itemInfo.precio;
   sheet.getRange(userRow + 1, 2).setValue(userPoints);
 
   // Si es protección, sumar 1 protección
-  if (itemInfo.nombre === "Protección") {
+  if (itemInfo.nombre === "Condon") {
     let proteccionesActuales = parseInt(sheet.getRange(userRow + 1, 3).getValue()) || 0;
     sheet.getRange(userRow + 1, 3).setValue(proteccionesActuales + 1);
   }
@@ -124,7 +148,13 @@ if (action === "comprar") {
     inventario.getRange(inventarioRow + 1, 3).setValue(cantidadActual + 1);
   }
 
-  return ContentService.createTextOutput(`¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}! Ahora tienes ${userPoints >= 0 ? userPoints : -userPoints} ${tipoPuntos}.`);
+  let mensaje = `¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}. Ahora tienes ${userPoints} ${tipoPuntos}.`;
+
+  if (itemInfo.nombre === "Condon" && cantidadDisponible !== null && cantidadDisponible >= 0) {
+   mensaje = `¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}, quedan ${cantidadDisponible} protecciones disponibles! Ahora tienes ${userPoints} ${tipoPuntos}.`;
+  }
+
+return ContentService.createTextOutput(mensaje);
 }
 //Comando !dar
  if (action === "dar") {
