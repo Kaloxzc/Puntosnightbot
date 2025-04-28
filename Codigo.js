@@ -11,6 +11,7 @@ function doGet(e)
   const data = sheet.getDataRange().getValues();
   const giveTo = e.parameter.giveTo?.toLowerCase();
   const amount = parseInt(e.parameter.amount);
+  let userPoints;
   if (action === "jugar"){
     // Comando !jugar
     const ganancias = [30, 20, 5];
@@ -57,7 +58,7 @@ function doGet(e)
     userRow = data.length;
   }
   //Variable para detectar coño o pene
-  let userPoints = parseInt(sheet.getRange(userRow + 1, 2).getValue());
+  userPoints = parseInt(sheet.getRange(userRow + 1, 2).getValue());
   const tipoPuntos = userPoints >= 0 ? "penes" : "coños";
   //Funcion que convierte un numero a penes/coños
   function points(n){
