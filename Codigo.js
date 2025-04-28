@@ -11,6 +11,46 @@ function doGet(e)
   const data = sheet.getDataRange().getValues();
   const giveTo = e.parameter.giveTo?.toLowerCase();
   const amount = parseInt(e.parameter.amount);
+  if (action === "jugar"){
+    // Comando !jugar
+    const ganancias = [30, 20, 5];
+    const perdidas = [-20, -10, -5];
+    const opciones = ganancias.concat(perdidas);
+    const cambio = opciones[Math.floor(Math.random() * opciones.length)];
+    userPoints = modifyPoints(user, a => a + cambio);
+    if(userPoints==null){
+      sheet.appendRow([user, cambio]);
+      userPoints=cambio;
+    }
+  
+  
+   // Si GANÓ (cambio positivo)
+   if (cambio > 0) {
+    const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
+    return ContentService.createTextOutput(resultado);
+   }
+  
+   // Si PERDIÓ (cambio negativo)
+   if (cambio < 0) {
+    let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue()); // Columna 3 = Protección
+  
+    if (protecciones > 0) {
+      // Tiene protección
+      protecciones -= 1;
+      sheet.getRange(userRow + 1, 3).setValue(protecciones);
+      
+      if (protecciones > 0) {
+        return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
+      } else {
+        return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
+      }
+    } else {
+      // No tiene protección
+      const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
+      return ContentService.createTextOutput(resultado);
+    }
+   }
+   }
   let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
   if (userRow === -1) {
     sheet.appendRow([user, 0]);
@@ -36,12 +76,13 @@ function doGet(e)
   }
   // Comando !penes
  if (action === "points") {
-  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === giveTo.toLowerCase());
+  let who=giveTo==null?user:giveTo;
+  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === who.toLowerCase());
 
   if (pointsRow === -1) {
-    return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
+    return ContentService.createTextOutput(`Error: ${who} no existe aún. Tiene que usar !jugar primero.`);
   }
-  return ContentService.createTextOutput(`${giveTo} tiene ${points(modifyPoints(giveTo,x=>x))}.`);
+  return ContentService.createTextOutput(`${who} tiene ${points(modifyPoints(who,x=>x))}.`);
 }
   //Comando !comprar
 if (action === "comprar") {
@@ -161,45 +202,5 @@ if (action === "ranking") {
 
   return ContentService.createTextOutput(`Top 5 global: ${rankingText}`);
  }
- // Comando !jugar
- const ganancias = [30, 20, 5];
- const perdidas = [-20, -10, -5];
- const opciones = ganancias.concat(perdidas);
- const cambio = opciones[Math.floor(Math.random() * opciones.length)];
- const tipoPuntosFinal = userPoints >= 0 ? "penes" : "coños";
- userPoints = modifyPoints(user, a => a + cambio);
-if (action === "jugar"){
-  
-  if(userPoints==null){
-    sheet.appendRow([user, cambio]);
-    userPoints=cambio;
-  }
 
- // Si GANÓ (cambio positivo)
- if (cambio > 0) {
-  const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
-  return ContentService.createTextOutput(resultado);
- }
-
- // Si PERDIÓ (cambio negativo)
- if (cambio < 0) {
-  let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue()); // Columna 3 = Protección
-
-  if (protecciones > 0) {
-    // Tiene protección
-    protecciones -= 1;
-    sheet.getRange(userRow + 1, 3).setValue(protecciones);
-    
-    if (protecciones > 0) {
-      return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
-    } else {
-      return ContentService.createTextOutput(`¡${user} perdió pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
-    }
-  } else {
-    // No tiene protección
-    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
-    return ContentService.createTextOutput(resultado);
-  }
- }
- }
 }
