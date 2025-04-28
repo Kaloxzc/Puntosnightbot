@@ -11,7 +11,8 @@ function doGet(e)
   const data = sheet.getDataRange().getValues();
   const giveTo = e.parameter.giveTo?.toLowerCase();
   const amount = parseInt(e.parameter.amount);
-  let userPoints;
+  let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
+  let userPoints=0;
   if (action === "jugar"){
     // Comando !jugar
     const ganancias = [30, 20, 5];
@@ -52,7 +53,6 @@ function doGet(e)
     }
    }
    }
-  let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
   if (userRow === -1) {
     sheet.appendRow([user, 0]);
     userRow = data.length;
@@ -77,7 +77,7 @@ function doGet(e)
   }
   // Comando !penes
  if (action === "points") {
-  let who=giveTo==null?user:giveTo;
+  let who=giveTo=="null"?user:giveTo;
   const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === who.toLowerCase());
 
   if (pointsRow === -1) {
