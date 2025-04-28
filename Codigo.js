@@ -36,12 +36,12 @@ function doGet(e)
   }
   // Comando !penes
  if (action === "points") {
-  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
+  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === giveTo.toLowerCase());
 
   if (pointsRow === -1) {
-    return ContentService.createTextOutput(`Error: ${user} no existe aún. Tiene que usar !jugar primero.`);
+    return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
   }
-  return ContentService.createTextOutput(`${user} tiene ${points(userPoints)}.`);
+  return ContentService.createTextOutput(`${giveTo} tiene ${points(modifyPoints(giveTo,x=>x))}.`);
 }
   //Comando !comprar
 if (action === "comprar") {
@@ -169,6 +169,12 @@ if (action === "ranking") {
  const tipoPuntosFinal = userPoints >= 0 ? "penes" : "coños";
  userPoints = modifyPoints(user, a => a + cambio);
 if (action === "jugar"){
+  
+  if(userPoints==null){
+    sheet.appendRow([user, cambio]);
+    userPoints=cambio;
+  }
+
  // Si GANÓ (cambio positivo)
  if (cambio > 0) {
   const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
