@@ -11,7 +11,7 @@ function doGet(e)
   const data = sheet.getDataRange().getValues();
   const giveTo = e.parameter.giveTo?.toLowerCase();
   const amount = parseInt(e.parameter.amount);
-  let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user);
+  let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
   if (userRow === -1) {
     sheet.appendRow([user, 0]);
     userRow = data.length;
@@ -27,7 +27,7 @@ function doGet(e)
   }
   //Función que busca el usuario, obtiene sus puntos, y de acuerdo al callback (una función de transformación) llamado "modifier", transforma los puntos del usuario
   function modifyPoints(user,modifier){
-    let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user);
+    let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
     if (row === -1) return null;
     let points=parseInt(sheet.getRange(row + 1, 2).getValue());
     points=modifier(points);
@@ -41,28 +41,34 @@ function doGet(e)
   if (pointsRow === -1) {
     return ContentService.createTextOutput(`Error: ${user} no existe aún. Tiene que usar !jugar primero.`);
   }
-
-  let userPoints = parseInt(sheet.getRange(pointsRow + 1, 2).getValue());
   return ContentService.createTextOutput(`${user} tiene ${points(userPoints)}.`);
 }
   //Comando !comprar
-  if (action === "comprar") {
+if (action === "comprar") {
   const itemComprar = e.parameter.item?.toLowerCase(); // el ítem que pidió
   const tienda = {
     "proteccion": { nombre: "Protección", precio: 150 },
   };
+  
   if (!itemComprar || !tienda[itemComprar]) {
     return ContentService.createTextOutput(`Error: El objeto "${itemComprar}" no existe en la tienda.`);
   }
+  
   const itemInfo = tienda[itemComprar];
 
   if (userPoints < itemInfo.precio) {
     return ContentService.createTextOutput(`No tienes suficientes ${tipoPuntos} para comprar ${itemInfo.nombre}. Necesitas ${itemInfo.precio}.`);
   }
-  //La resta del comprar
 
+  // La resta del comprar
   userPoints -= itemInfo.precio;
   sheet.getRange(userRow + 1, 2).setValue(userPoints);
+
+  // Si es protección, sumar 1 protección
+  if (itemInfo.nombre === "Protección") {
+    let proteccionesActuales = parseInt(sheet.getRange(userRow + 1, 3).getValue()) || 0;
+    sheet.getRange(userRow + 1, 3).setValue(proteccionesActuales + 1);
+  }
 
   //Agregar a inventario
   const inventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inventario");
@@ -70,15 +76,13 @@ function doGet(e)
   let inventarioRow = dataInventario.findIndex(r => r[0] && r[0].toLowerCase() === user && r[1] === itemInfo.nombre);
 
   if (inventarioRow === -1) {
-    // No tenía el ítem aún, agregar nuevo
     inventario.appendRow([user, itemInfo.nombre, 1]);
   } else {
-    // Ya tenía, aumentar cantidad
     let cantidadActual = parseInt(inventario.getRange(inventarioRow + 1, 3).getValue());
     inventario.getRange(inventarioRow + 1, 3).setValue(cantidadActual + 1);
   }
 
-  return ContentService.createTextOutput(`¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}! Ahora tienes ${userPoints >= 0 ?userPoints : -userPoints} ${tipoPuntos}.`);
+  return ContentService.createTextOutput(`¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}! Ahora tienes ${userPoints >= 0 ? userPoints : -userPoints} ${tipoPuntos}.`);
 }
 //Comando !dar
  if (action === "dar") {
