@@ -28,16 +28,23 @@ function doGet(e)
   //Función que busca el usuario, obtiene sus puntos, y de acuerdo al callback (una función de transformación) llamado "modifier", transforma los puntos del usuario
   function modifyPoints(user,modifier){
     let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user);
-    if (row === -1) return undefined;
+    if (row === -1) return null;
     let points=parseInt(sheet.getRange(row + 1, 2).getValue());
     points=modifier(points);
     sheet.getRange(row + 1, 2).setValue(points);
     return points;
   }
-  //Comando !penes
-  if (action === "points") { 
-    return ContentService.createTextOutput(`${user} tiene ${points(userPoints)}.`); 
+  // Comando !penes
+ if (action === "points") {
+  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
+
+  if (pointsRow === -1) {
+    return ContentService.createTextOutput(`Error: ${user} no existe aún. Tiene que usar !jugar primero.`);
   }
+
+  let userPoints = parseInt(sheet.getRange(pointsRow + 1, 2).getValue());
+  return ContentService.createTextOutput(`${user} tiene ${points(userPoints)}.`);
+}
   //Comando !comprar
   if (action === "comprar") {
   const itemComprar = e.parameter.item?.toLowerCase(); // el ítem que pidió
@@ -157,7 +164,7 @@ if (action === "ranking") {
  const cambio = opciones[Math.floor(Math.random() * opciones.length)];
  const tipoPuntosFinal = userPoints >= 0 ? "penes" : "coños";
  userPoints = modifyPoints(user, a => a + cambio);
-
+if (action === "jugar"){
  // Si GANÓ (cambio positivo)
  if (cambio > 0) {
   const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
@@ -180,8 +187,9 @@ if (action === "ranking") {
     }
   } else {
     // No tiene protección
-    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! Ahora tienes ${points(userPoints)} `;
+    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
     return ContentService.createTextOutput(resultado);
   }
+ }
  }
 }
