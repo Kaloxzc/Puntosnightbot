@@ -1,237 +1,275 @@
-function doGet(e) 
-//Verificar usuario
-{
-  if (!e.parameter.user) {
-    return ContentService.createTextOutput("Error: falta el nombre de usuario.");
+function lib_functionalUtilities() {
+  const isStruct = function (x) {
+    if (x == null) return false;
+    if (typeof x != 'object') return false;
+    if (Array.isArray(x)) return false;
+    if (x.constructor != ({}).constructor) return false;
+    return true
   }
-//Variables
-  const action = e.parameter.action;
-  const user = e.parameter.user.toLowerCase();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Puntos");
-  const data = sheet.getDataRange().getValues();
-  const giveTo = e.parameter.giveTo?.toLowerCase();
-  const amount = parseInt(e.parameter.amount);
-  let userRow = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
-  let userPoints=0;
-  if (action === "jugar"){
-    // Comando !jugar
-    const ganancias = [30, 20, 5];
-    const perdidas = [-20, -10, -5];
-    const opciones = ganancias.concat(perdidas);
-    const cambio = opciones[Math.floor(Math.random() * opciones.length)];
-    userPoints = modifyPoints(user, a => a + cambio);
-    if(userPoints==null){
-      sheet.appendRow([user, cambio]);
-      userPoints=cambio;
+  const updateStruct = function (struct, transformation, initial) {
+    if (!isStruct(struct)) throw `Given ${struct} as first argument, but it is not of the form {...}`;
+    if (!isStruct(transformation)) throw `Given ${transformation} as second argument, but it is not of the form {...}`;
+    if (initial != undefined && !isStruct(initial)) throw `The initial argument has to be of the form {...} and it represents the values to be put if the key is not found in the original "struct"`;
+    const newStruct = { ...struct };
+    for (let key in transformation) {
+      if (!struct.hasOwnProperty(key)) continue;
+      if (!isStruct(struct[key])) {
+        if (typeof transformation[key] != 'function') throw `Given ${transformation} as second argument, but its value in ${key} is not a function. It has to store an update function taking the current value and outputing the new value`;
+        newStruct[key] = transformation[key](struct[key]);
+        continue
+      }
+      newStruct[key] = updateStruct(struct[key], transformation[key])
     }
-  
-  
-   // Si GANÓ (cambio positivo)
-   if (cambio > 0) {
-    const resultado = `¡${user} ganó ${points(cambio)} BoyKisserSwoon ! Ahora tienes ${points(userPoints)}.`;
-    return ContentService.createTextOutput(resultado);
-   }
-  
-   // Si PERDIÓ (cambio negativo)
-   if (cambio < 0) {
-    const resultado = `¡${user} perdió ${Math.abs(cambio)} penes! BoykisserSad  Ahora tienes ${points(userPoints)} `;
-      return ContentService.createTextOutput(resultado);
-    let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue()); // Columna 3 = Protección
-   if(userRow == -1){
-    protecciones = 0
-   }
-    if (protecciones > 0) {
-      // Tiene protección
-      protecciones -= 1;
-      sheet.getRange(userRow + 1, 3).setValue(protecciones);
-
+    if (initial == undefined) return newStruct;
+    for (let key in initial) {
+      const hasit = struct.hasOwnProperty(key);
+      if (hasit && !isStruct(initial[key])) continue;
+      if (!hasit) {
+        newStruct[key] = initial[key];
+        continue
+      }
+      if (!isStruct(newStruct[key])) throw `What do you think you are doing? ${newStruct[key]} is not of the form {...}`
+      newStruct[key] = updateStruct(newStruct[key], {}, initial[key])
     }
-   }
-   }
-  if (userRow === -1) {
-    sheet.appendRow([user, 0]);
-    userRow = data.length;
+    return newStruct
   }
-  //Variable para detectar coño o pene
-  userPoints = parseInt(sheet.getRange(userRow + 1, 2).getValue());
-  const tipoPuntos = userPoints >= 0 ? "penes" : "coños";
-  //Funcion que convierte un numero a penes/coños
-  function points(n){
-    if(isNaN(n))return "0 penes";
-    else if(n>=0)return `${n} pene${n==1?"":"s"}`;
-    else return `${-n} coño${n==-1?"":"s"}`
+  const sumType = function (...constructors) {
+    let type = {};
+    constructors.forEach(s => {
+      if (typeof s != 'string') throw `The constructors must be strings but I was given ${s} as a constructor`;
+      type[s] = stored => function (cases) {
+        const errmsg = `In constructor ${s} I was given ${cases} as the "pattern match", but it has to be of the form {...} with the keys being the constructiors and the values being functions that take the stored value and output something`;
+        if (!isStruct(cases)) throw errmsg;
+        let nonExistingCase = false; let problematicCase;
+        for (let key in cases) {
+          if (constructors.includes(key)) continue;
+          nonExistingCase = true;
+          problematicCase = key
+        }
+        if (nonExistingCase) throw `In constructor ${s} I was given a ${problematicCase} case in the "pattern match", but there is no such constructor`;
+        let missingCase = false;
+        constructors.forEach(t => {
+          if (cases.hasOwnProperty(t)) return;
+          missingCase = true;
+          problematicCase = t
+        });
+        if (missingCase) throw `In constructor ${s}, the "pattern match" given is missing the case ${problematicCase}`;
+        if (typeof cases[s] != 'function') throw errmsg;
+        return cases[s](stored)
+      }
+    });
+    return type
   }
-  //Función que busca el usuario, obtiene sus puntos, y de acuerdo al callback (una función de transformación) llamado "modifier", transforma los puntos del usuario
-  function modifyPoints(user,modifier){
-    let row = data.findIndex(r => r[0] && r[0].toLowerCase() === user.toLowerCase());
-    if (row === -1) return null;
-    let points=parseInt(sheet.getRange(row + 1, 2).getValue());
-    points=modifier(points);
-    sheet.getRange(row + 1, 2).setValue(points);
-    return points;
+  const Maybe = sumType('Just', 'Nothing');
+  const getField = function (struct, key) {
+    if (!struct.hasOwnProperty(key)) return Maybe.Nothing();
+    return Maybe.Just(struct[key])
   }
-  // Comando !penes
- if (action === "points") {
-  let who=giveTo=="null"?user:giveTo;
-  const pointsRow = data.findIndex(r => r[0] && r[0].toLowerCase() === who.toLowerCase());
-
-  if (pointsRow === -1) {
-    return ContentService.createTextOutput(`Error: ${who} no existe aún. Tiene que usar !jugar primero.`);
-  }
-  return ContentService.createTextOutput(`${who} tiene ${points(modifyPoints(who,x=>x))}.`);
-}
-  //Comando !comprar
-if (action === "comprar") {
-  const itemComprar = e.parameter.item?.toLowerCase(); // el ítem que pidió
-  const tienda = {
-    "condon": { nombre: "Condon", precio: 2000 },
+  const runState = function (parameters, initial, update) {
+    if (typeof update != 'function') throw `Given ${update} as the update argument, but it is not a function. It has to be a function that takes the parameters and the current state, and returns a list [newState, message] with the updated State and the message to return`;
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Hoja de qp');
+    let currentState = sheet.getRange(1, 1).getValue();
+    if (currentState == '') {
+      sheet.getRange(1, 1).setValue(JSON.stringify(initial));
+      currentState = initial
+    } else currentState = JSON.parse(currentState);
+    [newState, message] = update(parameters, currentState);
+    sheet.getRange(1, 1).setValue(JSON.stringify(newState));
+    return ContentService.createTextOutput(message);
   };
-  
-  if (!itemComprar || !tienda[itemComprar]) {
-    return ContentService.createTextOutput(`Error: El objeto "${itemComprar}" no existe en la tienda.`);
-  }
-  let cantidadDisponible = null;  
-  const itemInfo = tienda[itemComprar];
-
-  if (userPoints < itemInfo.precio) {
-    return ContentService.createTextOutput(`No tienes suficientes ${tipoPuntos} para comprar ${itemInfo.nombre}. Necesitas ${itemInfo.precio}.`);
-  }
-if (itemInfo.nombre === "Condon") {
-  const stockSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Stock");
-  const stockData = stockSheet.getDataRange().getValues();
-  const stockRow = stockData.findIndex(r => r[0]?.toLowerCase() === "proteccion");
-
-  if (stockRow !== -1) {
-    cantidadDisponible = parseInt(stockData[stockRow][1]);
-    let ultimaRecarga = new Date(stockData[stockRow][2]);
-    const ahora = new Date();
-
-    // Verificar si ya pasó 1 día
-    if ((ahora - ultimaRecarga) >= (24 * 60 * 60 * 1000)) {
-      cantidadDisponible = 5; // Stock nuevo
-      stockSheet.getRange(stockRow + 1, 2).setValue(cantidadDisponible);
-      stockSheet.getRange(stockRow + 1, 3).setValue(ahora);
-    }
-
-    if (cantidadDisponible <= 0) {
-  // Evitar que compre si ya no hay stock
-  return ContentService.createTextOutput(`¡No quedan protecciones hoy! Intenta mañana OwO`);
-  }
-
-// SOLO SI HAY STOCK
-   cantidadDisponible--; // Descuenta 1
-   stockSheet.getRange(stockRow + 1, 2).setValue(cantidadDisponible);
-
-// Actualizar protecciones del usuario
-
-  }
+  return { updateStruct, sumType, runState, Maybe, getField }
 }
-  // La resta del comprar
-  userPoints -= itemInfo.precio;
-  sheet.getRange(userRow + 1, 2).setValue(userPoints);
-
-  // Si es protección, sumar 1 protección
-  if (itemInfo.nombre === "Condon") {
-    let proteccionesActuales = parseInt(sheet.getRange(userRow + 1, 3).getValue()) || 0;
-    sheet.getRange(userRow + 1, 3).setValue(proteccionesActuales + 1);
+function doGet(e) {
+  const { updateStruct, runState, getField } = lib_functionalUtilities();
+  const singleton = function (key, value) {
+    const r = {};
+    r[key] = value;
+    return r
   }
-
-  //Agregar a inventario
-  const inventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inventario");
-  const dataInventario = inventario.getDataRange().getValues();
-  let inventarioRow = dataInventario.findIndex(r => r[0] && r[0].toLowerCase() === user && r[1] === itemInfo.nombre);
-
-  if (inventarioRow === -1) {
-    inventario.appendRow([user, itemInfo.nombre, 1]);
-  } else {
-    let cantidadActual = parseInt(inventario.getRange(inventarioRow + 1, 3).getValue());
-    inventario.getRange(inventarioRow + 1, 3).setValue(cantidadActual + 1);
+  const format = function (n) {
+    if (isNaN(n)) return "0 penes";
+    else if (n >= 0) return `${n} pene${n == 1 ? "" : "s"}`;
+    else return `${-n} coño${n == -1 ? "" : "s"}`
   }
-
-  let mensaje = `¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}. Ahora tienes ${userPoints} ${tipoPuntos}.`;
-
-  if (itemInfo.nombre === "Condon" && cantidadDisponible !== null && cantidadDisponible >= 0) {
-   mensaje = `¡${user} compró 1 ${itemInfo.nombre} por ${itemInfo.precio} ${tipoPuntos}, quedan ${cantidadDisponible} protecciones disponibles! Ahora tienes ${userPoints} ${tipoPuntos}.`;
+  const numToDate = function (num) {
+    return new Date(num.year, num.month, num.day, num.hours)
   }
+  const dateToNum = function (date) {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth(),
+      day: date.getDate(),
+      hours: date.getHours()
+    }
+  }
+  //dada la fecha actual, y otra fecha, regresa un booleano indicando si ha pasado mas de cierto tiempo desde la fecha hasta ahora
+  const util = function (now, date, time) {
+    if (now.getFullYear() - date.year >= time.year && now.getMonth() - date.month >= time.month && now.getDate() - date.day >= time.day && now.getHours() - date.hours >= time.hours) return true;
+    return false
+  }
+  return runState(
+    e.parameter,
+    {
+      players: {
+        guspito019: { points: 90 },
+        Vane96: { points: 440 },
+        hiddxn: { points: 1 },
+        Meru_Harukata_: { points: -8 },
+        Guillestina_Palami: { points: -35 },
+        Josuemtz55: { points: -20 },
+        Kaloxzc: { points: 2020, inventory: { condones: 5 } }
+      },
+      shop: {
+        lastStockRefill: {
+          year: 2025,
+          month: 4,
+          day: 1,
+          hours: 0
+        },
+        items: {
+          condones: {
+            maxStock: 3,
+            stock: 3,
+            price: 2000
+          }
+        }
+      }
+    },
+    (params, currentState) => {
+      const { action, user, giveTo } = params;
+      let newState;
+      if (action == 'jugar') {
+        const ganancias = [30, 20, 5];
+        const perdidas = [-20, -10, -5];
+        const opciones = ganancias.concat(perdidas);
+        const cambio = opciones[Math.floor(Math.random() * opciones.length)];
+        newState = updateStruct(currentState, { players: singleton(user, { points: a => a + cambio }) }, {
+          players: singleton(user, {
+            points: cambio,
+            inventory: {}
+          })
+        })
+        points = newState.players[user].points;
+        return [newState, cambio > 0
+          ? `${user} ganó ${format(cambio)} BoyKisserSwoon ! Ahora tienes ${format(points)}`
+          : `${user} perdió ${format(-cambio)} BoykisserSad ! Ahora tienes ${format(points)}`
+        ]
+      }
+      if (action == 'points') {
+        let who = giveTo == "null" ? user : giveTo;
+        return [
+          currentState,
+          getField(currentState.players, who)({
+            Just: a => `${who} tiene ${format(a.points)}`,
+            Nothing: () => `Error: ${who} no existe aún. Tiene que usar !jugar primero.`
+          })
+        ]
+      }
+      if (action == 'comprar') {
+        const itemComprar = params.item.toLowerCase();
+        const item = currentState.shop.items[itemComprar];
+        if (!item) return [currentState, `Error: El objeto "${itemComprar}" no existe en la tienda.`];
+        const { price, stock } = item;
+        if (stock < 1) return [currentState, `¡No queda stock de ${itemComprar} por hoy! Intenta mañana OwO`];
+        let points = getField(currentState.players, user)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        if (points < price) return [currentState, `No tienes suficientes penes para comprar ${itemComprar}. Necesitas ${format(price)}.`];
+        const refill = util(new Date(), currentState.shop.lastStockRefill, {
+          year: 0,
+          month: 0,
+          day: 1,
+          hours: 0
+        }) ? item.maxStock : 0;
+        newState = updateStruct(currentState, {
+          shop: {
+            items: singleton(itemComprar, { stock: a => a + refill - 1 }),
+            lastStockRefill: () => dateToNum(new Date())
+          },
+          players: singleton(user, {
+            points: a => a - price,
+            inventory: singleton(itemComprar, a => a + 1)
+          })
+        }, { players: singleton(user, { inventory: singleton(itemComprar, 1) }) });
+        points = points - price; stock = stock + refill - 1;
+        return [newState, `${user} compró 1 de ${itemComprar} por ${format(price)}, quedan ${stock}. Ahora tienes ${points}`];
+      }
+      if (action == 'dar') {
+        const amount = parseInt(params.amount);
+        if (isNaN(amount) || amount <= 0) return [currentState, `Error: debes dar una cantidad valida de penes.`];
+        if (user == giveTo) return [currentState, `Error: no puedes darte penes a ti mismo idiota `];
+        let points = getField(currentState.players, user)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        if (points < amount) return [currentState, `Error: no tienes suficientes penes WAJAJA . Tienes ${format(points)} X3 `];
+        receiver = currentState.players[giveTo];
+        if (!receiver) return [currentState, `Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`];
+        points = points - amount; const points2 = receiver.points + amount;
+        newState = updateStruct(currentState, {
+          players: {
+            ...singleton(user, { points: () => points }),
+            ...singleton(giveTo, { points: () => points2 })
+          }
+        });
+        return [newState, `${user} le dio ${format(amount)} a ${giveTo} FemboyHop ! Jigglin Ahora tienes ${points}`];
+      }
+      if (action == 'gamba') {
+        let points = getField(currentState.players, user)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        let apuesta = params.bet.toLowerCase() == 'all' ? points : parseInt(params.bet);
+        if (isNaN(apuesta) || apuesta <= 0) return [currentState, `Error: debes apostar una cantidad válida de penes.`];
+        if (points < apuesta) return [currentState, `No tienes suficientes penes para apostar ${format(points)} chale . Actualmente tienes ${format(points)} X3 `];
+        const exito = Math.random() < 0.5;
+        const condones = getField(currentState.players[user].inventory, 'condones')({
+          Just: n => n,
+          Nothing: () => 0
+        });
+        if (exito) return [updateStruct(currentState, { players: singleton(user, { points: x => x + apuesta }) }), `${user} apostó ${format(apuesta)} y ganó! BoykisserDance Ahora tienes ${format(points + apuesta)} X3`];
+        if (condones > 0) return [
+          updateStruct(currentState, { players: singleton(user, { inventory: { condones: x => x - 1 } }) }),
+          `${user} perdió la apuesta, pero su condón lo protegió! ${condones == 1
+            ? `Era tu último condón, ahora estás vulnerable`
+            : `Aún tienes ${condones - 1} condones.`
+          }`
+        ];
+        return [
+          updateStruct(currentState, { players: singleton(user, { points: x => x - apuesta }) }),
+          `${user} apostó ${format(apuesta)} y perdió! sadkitty  Ahora tienes ${format(points - apuesta)}`
+        ]
+      }
+      if (action === "ranking") {
+        // Solo permitir a Kalox ejecutar el comando para evitar spam
+        if (user !== "Kaloxzc") {
+          return [currentState, `Solo Kalox puede usar este comando para evitar tageos.`]
+        }
 
-return ContentService.createTextOutput(mensaje);
+        const players = currentState.players;
+
+        if (!players) {
+          return [currentState, "❌ Error: No hay datos de jugadores disponibles."];
+        }
+
+        const usersData = Object.keys(players).map(name => {
+          const playerData = players[name];
+          return {
+            name: name,
+            points: playerData.points || 0
+          };
+        });
+
+        usersData.sort((a, b) => b.points - a.points);
+        const top5 = usersData.slice(0, 5);
+
+        let rankingText = top5.map((u, i) => `${i + 1}. ${u.name} (${u.points})`).join(' --- ');
+
+        return [currentState, `🏆 Top 5 global: ${rankingText}`];
+      }
+    }
+
+  )
 }
-//Comando !dar
- if (action === "dar") {
-    if (isNaN(amount) || amount <= 0){
-      return ContentService.createTextOutput(`Error: debes dar una cantidad valida de penes.`);
-  }
-    if (user === giveTo) {
-      return ContentService.createTextOutput(`Error: no puedes darte penes a ti mismo idiota `);
-    }
 
-    if (amount <= 0) {
-      return ContentService.createTextOutput("Error: la cantidad debe ser mayor que 0 xd ");
-    }
-    if (userPoints < amount) {
-      return ContentService.createTextOutput(`Error: no tienes suficientes penes WAJAJA . Tienes ${points(userPoints)} X3 `);
-    }
-
-    let success=modifyPoints(giveTo,giveToPoints=>giveToPoints + amount);
-    if (success==null)return ContentService.createTextOutput(`Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`);
-    userPoints=modifyPoints(user,userPoints=>userPoints - amount);
-
-    return ContentService.createTextOutput(`${user} le dio ${points(amount)} a ${giveTo} FemboyHop ! Jigglin Ahora tienes ${points(userPoints)} X3`)
-  }
-  //Comando !gamba
-  if (action === "gamba"){  
-  let apuesta = e.parameter.bet?.toLowerCase() === "all" ? Math.abs(userPoints) : parseInt(e.parameter.bet);
-  if (isNaN(apuesta) || apuesta <= 0) {
-    return ContentService.createTextOutput(`Error: debes apostar una cantidad válida de penes.`);
-  }
-  if (userPoints < apuesta) {
-    return ContentService.createTextOutput(`No tienes suficientes penes para apostar ${apuesta} chale . Actualmente tienes ${points(userPoints)} X3 `);
-  }
-
-  // 50% de ganar o perder
-  const exito = Math.random() < 0.5; // true = gana, false = pierde
-
-  if (exito) {
-    userPoints=modifyPoints(user,x=>x + apuesta);
-    return ContentService.createTextOutput(`${user} apostó ${points(apuesta)} y ganó! BoykisserDance Ahora tienes ${points(userPoints)} X3`)
-  } 
-  if (!exito) { // perdió
-  let protecciones = parseInt(sheet.getRange(userRow + 1, 3).getValue());
-  if (protecciones > 0) {
-    protecciones -= 1;
-    sheet.getRange(userRow + 1, 3).setValue(protecciones);
-    
-    if (protecciones > 0) {
-      return ContentService.createTextOutput(`¡${user} perdió la apuesta, pero su protección lo salvó! Aún tienes ${protecciones} protecciones.`);
-    } else {
-      return ContentService.createTextOutput(`¡${user} perdió la apuesta, pero su protección lo salvó! ¡Era tu última protección, ahora estás vulnerable!`);
-    }
-  } else {
-    // Sin protecciones, pierde normalmente
-    userPoints -= apuesta;
-    sheet.getRange(userRow + 1, 2).setValue(userPoints);
-    return ContentService.createTextOutput(`¡${user} apostó ${apuesta} penes y perdió! sadkitty Ahora tienes ${Math.abs(userPoints)} ${tipoPuntos}.`);
-  }
- }
- }
-//Comando !ranking
-if (action === "ranking") {
-  // Obtenemos los datos de todos
-  const usersData = data.map(r => ({
-    name: r[0],
-    points: parseInt(r[1])
-  }));
-
-  // Ordenamos por puntos de mayor a menor
-  usersData.sort((a, b) => b.points - a.points);
-
-  // Tomamos solo los primeros 5
-  const top5 = usersData.slice(0, 5);
-
-  // Armamos el mensaje
-  let rankingText = top5.map((u, i) => `${i + 1}. ${u.name} (${points(u.points)})`).join(' --- ');
-
-  return ContentService.createTextOutput(`Top 5 global: ${rankingText}`);
- }
-
-}
