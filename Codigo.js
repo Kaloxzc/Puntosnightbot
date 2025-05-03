@@ -166,10 +166,11 @@ function doGet(e) {
         ]
       }
       if (action == 'comprar') {
+        if (!params.item) return [currentState, `Error: debes especificar el objeto que quieres comprar.`];
         const itemComprar = params.item.toLowerCase();
         const item = currentState.shop.items[itemComprar];
         if (!item) return [currentState, `Error: El objeto "${itemComprar}" no existe en la tienda.`];
-        const { price, stock } = item;
+        let { price, stock } = item;
         if (stock < 1) return [currentState, `¡No queda stock de ${itemComprar} por hoy! Intenta mañana OwO`];
         let points = getField(currentState.players, user)({
           Just: a => a.points,
@@ -181,11 +182,18 @@ function doGet(e) {
           month: 0,
           day: 1,
           hours: 0
-        }) ? item.maxStock : 0;
+        });
+        const now = dateToNum(new Date());
+        stock = (refill ? item.maxStock : stock) - 1;
         newState = updateStruct(currentState, {
           shop: {
-            items: singleton(itemComprar, { stock: a => a + refill - 1 }),
-            lastStockRefill: () => dateToNum(new Date())
+            items: singleton(itemComprar, { stock: () => stock }),
+            lastStockRefill: {
+              year: () => now.year,
+              month: () => now.month,
+              day: () => now.day,
+              hours: () => now.hours
+            }
           },
           players: singleton(user, {
             points: a => a - price,
@@ -193,11 +201,11 @@ function doGet(e) {
           })
         }, { players: singleton(user, { inventory: singleton(itemComprar, 1) }) });
         points = points - price; stock = stock + refill - 1;
-        return [newState, `${user} compró 1 de ${itemComprar} por ${format(price)}, quedan ${stock}. Ahora tienes ${points}`];
+        return [newState, `${user} compró 1 de ${itemComprar} por ${format(price)}, quedan ${format(stock)}. Ahora tienes ${format(points)}`];
       }
       if (action == 'dar') {
         const amount = parseInt(params.amount);
-        if (isNaN(amount) || amount <= 0) return [currentState, `Error: debes dar una cantidad valida de penes.`];
+        if (isNaN(amount) || amount <= 0) return [currentState, `Error: debes dar una cantidad valida de penes kek `];
         if (user == giveTo) return [currentState, `Error: no puedes darte penes a ti mismo idiota `];
         let points = getField(currentState.players, user)({
           Just: a => a.points,
@@ -205,7 +213,7 @@ function doGet(e) {
         });
         if (points < amount) return [currentState, `Error: no tienes suficientes penes WAJAJA . Tienes ${format(points)} X3 `];
         receiver = currentState.players[giveTo];
-        if (!receiver) return [currentState, `Error: ${giveTo} no existe aún. Tiene que usar !jugar primero.`];
+        if (!receiver) return [currentState, `Error: ${giveTo} no existe aún. Tiene que usar !jugar primero PE `];
         points = points - amount; const points2 = receiver.points + amount;
         newState = updateStruct(currentState, {
           players: {
@@ -221,36 +229,47 @@ function doGet(e) {
           Nothing: () => 0
         });
         let apuesta = params.bet.toLowerCase() == 'all' ? points : parseInt(params.bet);
-        if (isNaN(apuesta) || apuesta <= 0) return [currentState, `Error: debes apostar una cantidad válida de penes.`];
+        if (isNaN(apuesta) || apuesta <= 0) return [currentState, `Error: debes apostar una cantidad válida de penes chale `];
         if (points < apuesta) return [currentState, `No tienes suficientes penes para apostar ${apuesta} chale . Actualmente tienes ${format(points)} X3 `];
         const exito = Math.random() < 0.5;
         const condones = getField(currentState.players[user].inventory, 'condones')({
           Just: n => n,
           Nothing: () => 0
         });
-        if (exito) return [updateStruct(currentState, { players: singleton(user, { points: x => x + apuesta }) }), `${user} apostó ${format(apuesta)} y ganó! BoykisserDance Ahora tienes ${format(points + apuesta)} X3`];
-        if (condones > 0) return [
-          updateStruct(currentState, { players: singleton(user, { inventory: { condones: x => x - 1 } }) }),
-          `${user} perdió la apuesta, pero su condón lo protegió! ${condones == 1
-            ? `Era tu último condón, ahora estás vulnerable`
-            : `Aún tienes ${condones - 1} condones.`
-          }`
+        if (exito) return [
+          updateStruct(currentState, { players: singleton(user, { points: x => x + apuesta }) }),
+          `${user} apostó ${format(apuesta)} y ganó! BoykisserDance Ahora tienes ${format(points + apuesta)} X3`
         ];
+        if (condones > 0) {
+          const mitad = Math.floor(apuesta / 2);
+          return [
+            updateStruct(currentState, {
+              players: singleton(user, {
+                points: x => x - mitad,
+                inventory: { condones: x => x - 1 }
+              })
+            }),
+            `${user} apostó ${format(apuesta)} y perdió, pero su condón redujo la pérdida a ${format(mitad)}! boykisserLays  ${condones == 1
+              ? `Era tu último condón, ahora estás vulnerable.`
+              : `Aún tienes ${condones - 1} condones.`
+            } Ahora tienes ${format(points - mitad)} X3`
+          ];
+        }
         return [
           updateStruct(currentState, { players: singleton(user, { points: x => x - apuesta }) }),
           `${user} apostó ${format(apuesta)} y perdió! sadkitty  Ahora tienes ${format(points - apuesta)}`
-        ]
+        ];
       }
       if (action === "ranking") {
         // Solo permitir a Kalox ejecutar el comando para evitar spam
         if (user !== "Kaloxzc") {
-          return [currentState, `Solo Kalox puede usar este comando para evitar tageos.`]
+          return [currentState, `Solo Kalox puede usar este comando para evitar tageos kaldo `]
         }
 
         const players = currentState.players;
 
         if (!players) {
-          return [currentState, "❌ Error: No hay datos de jugadores disponibles."];
+          return [currentState, "❌ Error: No hay datos de jugadores disponibles confused "];
         }
 
         const usersData = Object.keys(players).map(name => {
@@ -267,6 +286,41 @@ function doGet(e) {
         let rankingText = top5.map((u, i) => `${i + 1}. ${u.name} (${u.points})`).join(' --- ');
 
         return [currentState, `🏆 Top 5 global: ${rankingText}`];
+      }
+      if (action === "pelea") {
+        if (!params.giveTo || !params.apuesta) {
+          return [currentState, `Error: debes especificar a quién desafías y cuánto apuestas.`];
+        }
+        const giveTo = params.giveTo.replace(/^@/, "");
+        const apuesta = parseInt(params.apuesta);
+        if (isNaN(apuesta) || apuesta <= 0) {
+          return [currentState, `Error: la apuesta debe ser un número válido Susge`];
+        }
+        if (user == giveTo) return [currentState, `Error: no puedes desafiarte a ti mismo mien `];
+        const desafiado = currentState.players[giveTo];
+        if (!desafiado) return [currentState, `Error: ${giveTo} no existe para ser desafiado confused `];
+        let puntosRetador = getField(currentState.players, user)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        let puntosDesafiado = getField(currentState.players, giveTo)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        if (puntosRetador < apuesta) return [currentState, `No tienes suficientes penes para apostar ${apuesta} X3 `];
+        if (puntosDesafiado < apuesta) return [currentState, `${giveTo} no tiene suficientes penes para apostar ${apuesta} ejeje `];
+
+        const ganador = Math.random() < 0.5 ? user : giveTo;
+        const perdedor = ganador === user ? giveTo : user;
+        
+        const newState = updateStruct(currentState, {
+          players: {
+            ...singleton(ganador, { points: x => x + (apuesta) }),
+            ...singleton(perdedor, { points: x => x - (apuesta),})
+          }
+        });
+
+        return [newState, `${user} desafió a ${giveTo} por ${format(apuesta)} ... ${ganador} ganó y se lleva ${format(apuesta)} de ${perdedor} Happy EZ `];
       }
     }
 
