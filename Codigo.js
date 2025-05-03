@@ -222,7 +222,7 @@ function doGet(e) {
         });
         let apuesta = params.bet.toLowerCase() == 'all' ? points : parseInt(params.bet);
         if (isNaN(apuesta) || apuesta <= 0) return [currentState, `Error: debes apostar una cantidad válida de penes.`];
-        if (points < apuesta) return [currentState, `No tienes suficientes penes para apostar ${format(points)} chale . Actualmente tienes ${format(points)} X3 `];
+        if (points < apuesta) return [currentState, `No tienes suficientes penes para apostar ${apuesta} chale . Actualmente tienes ${format(points)} X3 `];
         const exito = Math.random() < 0.5;
         const condones = getField(currentState.players[user].inventory, 'condones')({
           Just: n => n,
