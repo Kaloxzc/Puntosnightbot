@@ -298,6 +298,9 @@ function doGet(e) {
         }
         if (user == giveTo) return [currentState, `Error: no puedes desafiarte a ti mismo mien `];
         const desafiado = currentState.players[giveTo];
+        if (currentState.pendingDuels?.[giveTo]) {
+          return [currentState, `${giveTo} ya tiene un desafío pendiente.`];
+        }
         if (!desafiado) return [currentState, `Error: ${giveTo} no existe para ser desafiado confused `];
         let puntosRetador = getField(currentState.players, user)({
           Just: a => a.points,
@@ -309,18 +312,66 @@ function doGet(e) {
         });
         if (puntosRetador < apuesta) return [currentState, `No tienes suficientes penes para apostar ${apuesta} X3 `];
         if (puntosDesafiado < apuesta) return [currentState, `${giveTo} no tiene suficientes penes para apostar ${apuesta} ejeje `];
+        const existingDuels = currentState.pendingDuels ?? {};
 
-        const ganador = Math.random() < 0.5 ? user : giveTo;
-        const perdedor = ganador === user ? giveTo : user;
-        
         const newState = updateStruct(currentState, {
-          players: {
-            ...singleton(ganador, { points: x => x + (apuesta) }),
-            ...singleton(perdedor, { points: x => x - (apuesta),})
+          pendingDuels: {
+            ...existingDuels,
+            [giveTo]: { retador: user, apuesta: apuesta }
           }
         });
 
-        return [newState, `${user} desafió a ${giveTo} por ${format(apuesta)} ... ${ganador} ganó y se lleva ${format(apuesta)} de ${perdedor} Happy EZ `];
+        return [newState, `${user} ha desafiado a ${giveTo} por ${format(apuesta)} ! ${giveTo}, escribe "aceptar" para permitir el desafío o "rechazar" para negarte.`];
+      }
+      if (action === "aceptar") {
+        const pending = currentState.pendingDuels?.[user];
+        if (!pending) {
+          return [currentState, `No tienes ningún desafío pendiente.`];
+        }
+        const { retador, apuesta } = pending;
+        let puntosRetador = getField(currentState.players, retador)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        let puntosDesafiado = getField(currentState.players, user)({
+          Just: a => a.points,
+          Nothing: () => 0
+        });
+        if (puntosRetador < apuesta) {
+          return [currentState, `El desafío se ha cancelado porque ${retador} ya no tiene suficientes penes.`];
+        }
+        if (puntosDesafiado < apuesta) {
+          return [currentState, `El desafío se ha cancelado porque ya no tienes suficientes penes.`];
+        }
+        const ganador = Math.random() < 0.5 ? user : retador;
+        const perdedor = ganador === user ? retador : user;
+        const newState = updateStruct(currentState, {
+          players: {
+            ...singleton(ganador, { points: x => x + apuesta }),
+            ...singleton(perdedor, { points: x => x - apuesta })
+          },
+          pendingDuels: {
+            ...currentState.pendingDuels,
+            [user]: undefined
+          }
+        });
+
+        return [newState, `${user} aceptó el desafío de ${retador} por ${format(apuesta)} penes... ${ganador} ganó y se lleva ${format(apuesta)} de ${perdedor} happy EZ`];
+      }
+      if (action === "rechazar") {
+        const pending = currentState.pendingDuels?.[user];
+        if (!pending) {
+          return [currentState, `No tienes ningún desafío pendiente.`];
+        }
+        const retador = pending.retador;
+        const newState = updateStruct(currentState, {
+          pendingDuels: {
+            ...currentState.pendingDuels,
+            [user]: undefined
+          }
+        });
+
+        return [newState, `${user} rechazó el desafío de ${retador} Sadge`];
       }
     }
 
