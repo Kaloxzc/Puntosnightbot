@@ -288,90 +288,66 @@ function doGet(e) {
         return [currentState, `🏆 Top 5 global: ${rankingText}`];
       }
       if (action === "pelea") {
-        if (!params.giveTo || !params.apuesta) {
-          return [currentState, `Error: debes especificar a quién desafías y cuánto apuestas.`];
+        let state=currentState;
+        if (!params.giveTo || !params.apuesta){
+          return [state,'Error: debes especificar a quién desafías y cuánto apuestas']
         }
         const giveTo = params.giveTo.replace(/^@/, "");
         const apuesta = parseInt(params.apuesta);
         if (isNaN(apuesta) || apuesta <= 0) {
-          return [currentState, `Error: la apuesta debe ser un número válido Susge`];
+          return [state, `Error: la apuesta debe ser un número válido Susge`];
         }
-        if (user == giveTo) return [currentState, `Error: no puedes desafiarte a ti mismo mien `];
-        const desafiado = currentState.players[giveTo];
-        if (currentState.pendingDuels?.[giveTo]) {
-          return [currentState, `${giveTo} ya tiene un desafío pendiente.`];
-        }
-        if (!desafiado) return [currentState, `Error: ${giveTo} no existe para ser desafiado confused `];
-        let puntosRetador = getField(currentState.players, user)({
-          Just: a => a.points,
-          Nothing: () => 0
-        });
-        let puntosDesafiado = getField(currentState.players, giveTo)({
-          Just: a => a.points,
-          Nothing: () => 0
-        });
-        if (puntosRetador < apuesta) return [currentState, `No tienes suficientes penes para apostar ${apuesta} X3 `];
-        if (puntosDesafiado < apuesta) return [currentState, `${giveTo} no tiene suficientes penes para apostar ${apuesta} ejeje `];
-        const existingDuels = currentState.pendingDuels ?? {};
-
-        const newState = updateStruct(currentState, {
-          pendingDuels: {
-            ...existingDuels,
-            [giveTo]: { retador: user, apuesta: apuesta }
-          }
-        });
-
-        return [newState, `${user} ha desafiado a ${giveTo} por ${format(apuesta)} ! ${giveTo}, escribe "aceptar" para permitir el desafío o "rechazar" para negarte.`];
+        if (user == giveTo) return [state, `Error: no puedes desafiarte a ti mismo mien`];
+        const players = state.players
+        if(!state.pendingDuels)state.pendingDuels=[];
+        if(!players[giveTo])return [state,`Error: ${giveTo} no existe para ser desafiado confused`];
+        if(!players[user])players[user].points=0;//por si user no ha puesto !jugar antes y este es su primer comando
+        let puntosRetador=players[user].points;
+        let puntosDesafiado=players[giveTo].points;
+        if(puntosRetador<apuesta)return [state,`No tienes suficientes penes para apostar ${format(apuesta)} X3`];
+        if (puntosDesafiado < apuesta) return [state, `${giveTo} no tiene suficientes penes para apostar ${format(apuesta)} ejeje`];
+        if(state.pendingDuels.reduce((total,current)=>total||current.retador==user||current.desafiado==giveTo,false))return [state,`${user} o ${giveTo} ya tienen un desafío pendiente, espera a que sea aceptado o rechazado`];
+        state.pendingDuels.push({apuesta,retador:user,desafiado:giveTo});
+        return [state,`${user} ha retado a ${giveTo} por ${format(apuesta)}! ${giveTo}, escribe "aceptar" o "rechazar" para responder al desafío`];
       }
       if (action === "aceptar") {
-        const pending = currentState.pendingDuels?.[user];
-        if (!pending) {
-          return [currentState, `No tienes ningún desafío pendiente.`];
+        let state=currentState;
+        const pending=state.pendingDuels.reduce((total,current)=>{
+          if(total)return total;
+          if(current.desafiado==user)return current;
+          return null
+        },null);
+        if(!pending)return [state,'No tienes ningún desafío pendiente'];
+        if(!state.players[user])state.players[user].points=0;//por si user no ha puesto !jugar antes y este es su primer comando
+        const {retador,desafiado,apuesta}=pending;
+        let puntosDesafiado=state.players[desafiado].points;
+        let puntosRetador=state.players[retador].points;
+        state.pendingDuels=state.pendingDuels.filter(a=>a.desafiado!=user);
+        if(puntosRetador<apuesta)return [state,`El desafío se ha cancelado porque ${retador} ya no tiene suficientes penes.`]
+        if(puntosDesafiado<apuesta)return [state,`El desafío se ha cancelado porque ya no tienes suficientes penes.`];
+        const resultado = Math.random()<0.5;
+        if(resultado){
+          puntosDesafiado=puntosDesafiado+apuesta;
+          puntosRetador=puntosRetador-apuesta;
+        }else {
+          puntosDesafiado=puntosDesafiado-apuesta;
+          puntosRetador=puntosRetador+apuesta;
         }
-        const { retador, apuesta } = pending;
-        let puntosRetador = getField(currentState.players, retador)({
-          Just: a => a.points,
-          Nothing: () => 0
-        });
-        let puntosDesafiado = getField(currentState.players, user)({
-          Just: a => a.points,
-          Nothing: () => 0
-        });
-        if (puntosRetador < apuesta) {
-          return [currentState, `El desafío se ha cancelado porque ${retador} ya no tiene suficientes penes.`];
-        }
-        if (puntosDesafiado < apuesta) {
-          return [currentState, `El desafío se ha cancelado porque ya no tienes suficientes penes.`];
-        }
-        const ganador = Math.random() < 0.5 ? user : retador;
-        const perdedor = ganador === user ? retador : user;
-        const newState = updateStruct(currentState, {
-          players: {
-            ...singleton(ganador, { points: x => x + apuesta }),
-            ...singleton(perdedor, { points: x => x - apuesta })
-          },
-          pendingDuels: {
-            ...currentState.pendingDuels,
-            [user]: undefined
-          }
-        });
-
-        return [newState, `${user} aceptó el desafío de ${retador} por ${format(apuesta)} penes... ${ganador} ganó y se lleva ${format(apuesta)} de ${perdedor} happy EZ`];
+        state.players[desafiado].points=puntosDesafiado;
+        state.players[retador].points=puntosRetador;
+        return [state,`${user} aceptó el desafío de ${retador} por ${format(apuesta)}... ${resultado?desafiado:retador} ganó y se lleva ${format(apuesta)} de ${resultado?retador:desafiado} Happy EZ`]
       }
       if (action === "rechazar") {
-        const pending = currentState.pendingDuels?.[user];
-        if (!pending) {
-          return [currentState, `No tienes ningún desafío pendiente.`];
-        }
-        const retador = pending.retador;
-        const newState = updateStruct(currentState, {
-          pendingDuels: {
-            ...currentState.pendingDuels,
-            [user]: undefined
-          }
-        });
-
-        return [newState, `${user} rechazó el desafío de ${retador} Sadge`];
+        let state=currentState;
+        const pending=state.pendingDuels.reduce((total,current)=>{
+          if(total)return total;
+          if(current.desafiado==user)return current;
+          return null
+        },null);
+        if(!pending)return [state,'No tienes ningún desafío pendiente'];
+        state.pendingDuels=state.pendingDuels.filter(a=>a.desafiado!=user);
+        const {retador}=pending;
+        return [state,`${user} rechazó el desafío de ${retador} Sadge (seguro le tiene miedo SMH )`]
       }
     }
 
